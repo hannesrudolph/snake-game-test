@@ -7,6 +7,7 @@ export class Snake {
   private body: Position[] = [];
   private direction: Direction = Direction.RIGHT;
   private growthPending: number = 0;
+  private canMove: boolean = true;
 
   /**
    * Initialize the snake with a starting position
@@ -64,6 +65,11 @@ export class Snake {
    * Move the snake in its current direction
    */
   move(): void {
+    if (!this.canMove) {
+      this.canMove = true;
+      return;
+    }
+    this.canMove = false;
     const head = this.getHead();
     let newHead: Position;
 
