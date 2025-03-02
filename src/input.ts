@@ -1,5 +1,6 @@
 import * as readline from 'readline';
 import { Direction } from './types';
+import { Game } from './game';
 
 /**
  * Input handler class to manage keyboard input
@@ -8,6 +9,7 @@ export class InputHandler {
   private direction: Direction = Direction.RIGHT;
   private isRunning: boolean = true;
   private readline: readline.Interface;
+  private game: Game | null = null;
 
   /**
    * Initialize the input handler
@@ -56,6 +58,10 @@ export class InputHandler {
           this.direction = Direction.RIGHT;
           break;
       }
+      // Handle pause (p key)
+      if (key.name === 'p') {
+        this.togglePause();
+      }
     });
   }
 
@@ -93,5 +99,15 @@ export class InputHandler {
   resetGame(): void {
     this.direction = Direction.RIGHT;
     this.isRunning = true;
+  }
+
+  setGame(game: Game): void {
+    this.game = game;
+  }
+
+  togglePause(): void {
+    if (this.game) {
+      this.game.isPaused = !this.game.isPaused;
+    }
   }
 }
