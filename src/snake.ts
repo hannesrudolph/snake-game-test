@@ -65,6 +65,8 @@ export class Snake {
    * Move the snake in its current direction
    */
   move(): void {
+    // The canMove flag is used to prevent the snake from moving twice in one frame.
+    // It's toggled because the input handler allows changing direction in the same frame as movement.
     if (!this.canMove) {
       this.canMove = true;
       return;

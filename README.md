@@ -132,6 +132,15 @@ The game is built using several key components:
 - Obstacles
 - Game pause functionality
 
+## Development
+
+Here are some ideas for future development or refactoring:
+
+- **Refactor input handling:**  The current input handling could be made more robust and potentially separated into its own module.
+- **Add game states:** Introduce different game states (e.g., menu, playing, paused, game over) to improve the game's structure.
+- **Improve collision detection:**  The collision detection could be optimized for performance.
+- **Configuration file:** Allow game settings (board size, speed) to be loaded from a configuration file.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
