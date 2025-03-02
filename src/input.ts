@@ -89,4 +89,9 @@ export class InputHandler {
       process.stdin.setRawMode(false);
     }
   }
+
+  resetGame(): void {
+    this.direction = Direction.RIGHT;
+    this.isRunning = true;
+  }
 }
