@@ -86,6 +86,7 @@ export class Game {
 
     // Move the snake
     this.snake.move();
+    console.log('Snake position:', this.snake.getHead());
 
     // Check for collisions with walls
     const head = this.snake.getHead();

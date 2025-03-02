@@ -46,6 +46,7 @@ export class Food {
       };
 
       // If snake is provided, make sure food doesn't spawn on the snake
+      // Check if the new position is valid (not on the snake)
       isValidPosition = !snake || !snake.isAtPosition(newPosition);
       
       // If position is valid, update the food position
