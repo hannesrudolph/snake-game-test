@@ -44,6 +44,10 @@ export class Game {
    * Start the game
    */
   start(): void {
+    if (this.config.width <= 0 || this.config.height <= 0) {
+      console.error('Invalid board dimensions. Game not started.');
+      return;
+    }
     if (this.gameLoopInterval) {
       clearInterval(this.gameLoopInterval);
     }
