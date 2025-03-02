@@ -18,6 +18,10 @@ export class Game {
   private gameLoopInterval: NodeJS.Timeout | null = null;
   private isGameOver: boolean = false;
 
+  public getIsGameOver(): boolean {
+    return this.isGameOver;
+  }
+
   /**
    * Initialize the game with optional custom configuration
    * @param config Optional custom game configuration
