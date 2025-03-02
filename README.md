@@ -143,13 +143,17 @@ Here are some ideas for future development or refactoring:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions from the community! If you'd like to contribute to this project, please follow these guidelines:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1.  **Fork the Repository:** Start by forking the repository to your own GitHub account.
+2.  **Create a Branch:** Create a new branch for your feature or bug fix. Use a descriptive name, such as `feature/add-high-scores` or `bugfix/fix-collision-detection`.
+3.  **Make Changes:** Implement your changes, ensuring they are well-documented and follow the project's coding style.
+4.  **Write Tests:** If applicable, write unit tests to cover your changes.
+5.  **Commit Changes:** Commit your changes with clear and concise commit messages.
+6.  **Push to Your Fork:** Push your branch to your forked repository.
+7.  **Submit a Pull Request:** Create a pull request from your branch to the main branch of the original repository. Provide a detailed description of your changes and why they are necessary.
+
+Please be respectful of other contributors and adhere to the project's code of conduct (if one exists).
 
 ## License
 

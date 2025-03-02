@@ -50,6 +50,7 @@ export class Game {
     this.food.generateNewPosition(this.snake);
   }
 
+  
   /**
    * Start the game
    */
@@ -73,6 +74,7 @@ export class Game {
     }, this.speed);
   }
 
+  
   /**
    * Update the game state
    */
@@ -91,9 +93,9 @@ export class Game {
     // Check for collisions with walls
     const head = this.snake.getHead();
     if (
-      head.x <= 0 || 
-      head.x >= this.config.width - 1 || 
-      head.y <= 0 || 
+      head.x <= 0 ||
+      head.x >= this.config.width - 1 ||
+      head.y <= 0 ||
       head.y >= this.config.height - 1
     ) {
       this.isGameOver = true;
@@ -135,6 +137,7 @@ export class Game {
     }
   }
 
+  
   /**
    * Render the current game state
    */
@@ -149,6 +152,7 @@ export class Game {
     }
   }
 
+  
   /**
    * End the game
    */

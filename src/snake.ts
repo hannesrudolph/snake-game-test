@@ -92,7 +92,8 @@ export class Snake {
         break;
     }
 
-    // Add new head to the beginning of the body
+    // Add new head to the beginning of the body.
+    // If growth is pending, the tail won't be removed, effectively growing the snake.
     this.body.unshift(newHead);
 
     // Remove the tail unless growth is pending
