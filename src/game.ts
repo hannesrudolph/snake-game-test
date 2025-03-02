@@ -17,6 +17,11 @@ export class Game {
   private speed: number;
   private gameLoopInterval: NodeJS.Timeout | null = null;
   private isGameOver: boolean = false;
+  private isPaused: boolean = false;
+
+  public getIsPaused(): boolean {
+    return this.isPaused;
+  }
 
   public getIsGameOver(): boolean {
     return this.isGameOver;
@@ -39,6 +44,7 @@ export class Game {
     this.food = new Food(this.config.width, this.config.height);
     this.renderer = new Renderer(this.config);
     this.inputHandler = new InputHandler();
+    this.inputHandler.setGame(this);
 
     // Make sure food doesn't spawn on the snake initially
     this.food.generateNewPosition(this.snake);
@@ -71,7 +77,7 @@ export class Game {
    * Update the game state
    */
   private update(): void {
-    if (this.isGameOver || !this.inputHandler.getIsRunning()) {
+    if (this.isGameOver || !this.inputHandler.getIsRunning() || this.isPaused) {
       return;
     }
 
