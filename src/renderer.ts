@@ -103,8 +103,7 @@ export class Renderer {
    * @param speed Current game speed
    */
   displayInfo(score: number, speed: number): void {
-    console.log(`Score: ${chalk.yellow(score)} | Speed: ${chalk.yellow(speed)}ms`);
-    console.log('Controls: Arrow Keys to move, Ctrl+C to exit');
+    console.log(`Score: ${chalk.yellow(score)} | Speed: ${chalk.yellow(speed)}ms\nControls: Arrow Keys to move, Ctrl+C to exit`);
   }
 
   /**
