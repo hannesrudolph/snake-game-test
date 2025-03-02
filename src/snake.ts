@@ -72,6 +72,7 @@ export class Snake {
     this.canMove = false;
     const head = this.getHead();
     let newHead: Position;
+    console.log("Snake head position:", head);
 
     // Calculate new head position based on direction
     switch (this.direction) {
