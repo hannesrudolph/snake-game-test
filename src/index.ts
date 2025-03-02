@@ -19,4 +19,15 @@ setTimeout(() => {
     game.end();
     process.exit();
   });
+
+  // Handle game restart
+  process.stdin.on('data', (chunk) => {
+    const input = chunk.toString().trim().toLowerCase();
+    if (input === 'r' && game.getIsGameOver()) {
+      console.log('Restarting game...');
+      game.end();
+      const newGame = new Game();
+      newGame.start();
+    }
+  });
 }, 3000);
