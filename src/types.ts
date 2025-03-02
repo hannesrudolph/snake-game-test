@@ -43,5 +43,6 @@ export const DEFAULT_CONFIG: GameConfig = {
   width: 20,
   height: 10,
   initialSpeed: 200, // milliseconds between moves
-  speedIncrement: 10 // milliseconds to decrease per food eaten
+  speedIncrement: 10, // milliseconds to decrease per food eaten
+  // initialSpeed and speedIncrement are in milliseconds
 };
