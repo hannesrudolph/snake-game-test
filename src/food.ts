@@ -60,6 +60,7 @@ export class Food {
    * @param position The position to check
    */
   isAtPosition(position: Position): boolean {
-    return this.position.x === position.x && this.position.y === position.y;
+    const { x, y } = position;
+    return this.position.x === x && this.position.y === y;
   }
 }
