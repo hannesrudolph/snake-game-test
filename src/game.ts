@@ -8,6 +8,7 @@ import { InputHandler } from './input';
  * Game class to manage the game state and coordinate between components
  */
 export class Game {
+  // This is a comment added as part of random improvements.
   private config: GameConfig;
   private snake: Snake;
   private food: Food;
