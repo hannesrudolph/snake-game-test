@@ -1,402 +1,138 @@
 name: Manage Issue Labels
 
 on:
-  # Run periodically to check for issues in "In Progress"
-  schedule:
-    - cron: '*/5 * * * *'  # Run every 5 minutes
+  # Trigger when an issue is labeled
+  issues:
+    types: [labeled]
   # Manual trigger for testing
   workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to process (leave empty to process all issues)'
+        required: false
+        type: string
 
 permissions:
   issues: write
   contents: read
 
 jobs:
-  debug-issues:
+  manage-labels-for-zenhub:
     runs-on: ubuntu-latest
     steps:
-      - name: Super Detailed Issue Debugging
+      - name: Process issue when "in-progress" label is added
+        if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'in-progress'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("================ SUPER DETAILED ISSUE DEBUGGING ================");
-            console.log("Repository: " + context.repo.owner + "/" + context.repo.repo);
-            console.log("Workflow triggered by: " + context.eventName);
+            console.log("Issue labeled with 'in-progress', processing labels...");
             
-            // Get all open issues
-            console.log("\nFetching all issues...");
-            const { data: allIssues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'all', // Get both open and closed issues
-              per_page: 100
-            });
+            const issue = context.payload.issue;
+            const issueNumber = issue.number;
             
-            // Log issue count
-            console.log(`Found ${allIssues.length} total issues`);
+            console.log(`Processing issue #${issueNumber}: ${issue.title}`);
+            console.log(`Current labels: ${issue.labels.map(l => l.name).join(', ') || 'None'}`);
             
-            // Process each issue with super detailed information
-            for (const issue of allIssues) {
-              const issueNumber = issue.number;
-              
-              // Skip pull requests if they show up in issues list
-              if (issue.pull_request) {
-                console.log(`\nSkipping #${issueNumber} (${issue.title}) - This is a pull request`);
-                continue;
-              }
-              
-              console.log(`\n================================================================`);
-              console.log(`COMPLETE ISSUE #${issueNumber} DETAILS: ${issue.title}`);
-              console.log(`================================================================`);
-              
-              // Basic issue information
-              console.log("\n=== BASIC INFO ===");
-              console.log(`URL: ${issue.html_url}`);
-              console.log(`Number: ${issueNumber}`);
-              console.log(`Title: ${issue.title}`);
-              console.log(`State: ${issue.state}`);
-              console.log(`Created: ${issue.created_at}`);
-              console.log(`Updated: ${issue.updated_at}`);
-              if (issue.closed_at) {
-                console.log(`Closed: ${issue.closed_at}`);
-              }
-              
-              // User information
-              console.log("\n=== USER INFO ===");
-              console.log(`Created by: ${issue.user.login} (${issue.user.html_url})`);
-              if (issue.assignee) {
-                console.log(`Assignee: ${issue.assignee.login}`);
-              }
-              if (issue.assignees && issue.assignees.length > 0) {
-                console.log(`All Assignees: ${issue.assignees.map(a => a.login).join(', ')}`);
-              }
-              
-              // Content
-              console.log("\n=== CONTENT ===");
-              console.log("Body:");
-              console.log(issue.body || "(No description provided)");
-              
-              // Labels
-              console.log("\n=== LABELS ===");
-              if (issue.labels && issue.labels.length > 0) {
-                console.log(`Labels (${issue.labels.length}):`);
-                for (const label of issue.labels) {
-                  console.log(`- ${label.name} (${label.color}): ${label.description || 'No description'}`);
-                }
-              } else {
-                console.log("No labels");
-              }
-              
-              // Milestones
-              console.log("\n=== MILESTONE ===");
-              if (issue.milestone) {
-                console.log(`Milestone: ${issue.milestone.title}`);
-                console.log(`Description: ${issue.milestone.description || 'No description'}`);
-                console.log(`Due on: ${issue.milestone.due_on || 'No due date'}`);
-              } else {
-                console.log("No milestone assigned");
-              }
-              
-              // Comments
-              console.log("\n=== COMMENTS ===");
-              try {
-                const { data: comments } = await github.rest.issues.listComments({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  per_page: 100
-                });
-                
-                if (comments.length > 0) {
-                  console.log(`Comments (${comments.length}):`);
-                  for (const comment of comments) {
-                    console.log(`- ${comment.user.login} at ${comment.created_at}:`);
-                    console.log(`  ${comment.body.replace(/\n/g, '\n  ')}`);
-                    console.log("");
-                  }
-                } else {
-                  console.log("No comments");
-                }
-              } catch (error) {
-                console.error(`Error fetching comments: ${error.message}`);
-              }
-              
-              // Events (timeline)
-              console.log("\n=== TIMELINE ===");
-              try {
-                const { data: timeline } = await github.rest.issues.listEventsForTimeline({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  per_page: 100
-                });
-                
-                if (timeline.length > 0) {
-                  console.log(`Timeline events (${timeline.length}):`);
-                  for (const event of timeline) {
-                    console.log(`- [${event.created_at}] ${event.event}`);
-                    
-                    // Log different properties based on event type
-                    if (event.event === 'labeled' || event.event === 'unlabeled') {
-                      console.log(`  Label: ${event.label?.name}`);
-                    } else if (event.event === 'milestoned' || event.event === 'demilestoned') {
-                      console.log(`  Milestone: ${event.milestone?.title}`);
-                    } else if (event.event === 'assigned' || event.event === 'unassigned') {
-                      console.log(`  Assignee: ${event.assignee?.login}`);
-                    } else if (event.event === 'referenced') {
-                      console.log(`  Commit: ${event.commit_id}`);
-                    } else if (event.event === 'cross-referenced') {
-                      console.log(`  Reference: ${event.source?.issue?.html_url || event.source?.issue?.url}`);
-                    } else if (event.event === 'moved_columns_in_project') {
-                      console.log(`  Project: ${event.project_card?.project_url}`);
-                      console.log(`  Column: ${event.project_card?.column_name}`);
-                    }
-                  }
-                } else {
-                  console.log("No timeline events");
-                }
-              } catch (error) {
-                console.error(`Error fetching timeline: ${error.message}`);
-              }
-              
-              // GitHub Projects V2
-              console.log("\n=== GITHUB PROJECTS V2 ===");
-              try {
-                const projectsQuery = `
-                  query GetIssueProjects($owner: String!, $repo: String!, $number: Int!) {
-                    repository(owner: $owner, name: $repo) {
-                      issue(number: $number) {
-                        projectItems(first: 20) {
-                          nodes {
-                            id
-                            project {
-                              id
-                              number
-                              title
-                              url
-                              owner {
-                                __typename
-                                ... on User {
-                                  login
-                                }
-                                ... on Organization {
-                                  login
-                                }
-                              }
-                            }
-                            fieldValues(first: 20) {
-                              nodes {
-                                __typename
-                                ... on ProjectV2ItemFieldSingleSelectValue {
-                                  name
-                                  field {
-                                    ... on ProjectV2SingleSelectField {
-                                      id
-                                      name
-                                    }
-                                  }
-                                }
-                                ... on ProjectV2ItemFieldTextValue {
-                                  text
-                                  field {
-                                    ... on ProjectV2Field {
-                                      id
-                                      name
-                                    }
-                                  }
-                                }
-                                ... on ProjectV2ItemFieldDateValue {
-                                  date
-                                  field {
-                                    ... on ProjectV2Field {
-                                      id
-                                      name
-                                    }
-                                  }
-                                }
-                                ... on ProjectV2ItemFieldIterationValue {
-                                  title
-                                  field {
-                                    ... on ProjectV2IterationField {
-                                      id
-                                      name
-                                    }
-                                  }
-                                }
-                                ... on ProjectV2ItemFieldNumberValue {
-                                  number
-                                  field {
-                                    ... on ProjectV2Field {
-                                      id
-                                      name
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                `;
-                
-                const projectsResult = await github.graphql(projectsQuery, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  number: issueNumber
-                });
-                
-                const projectItems = projectsResult.repository.issue.projectItems.nodes;
-                
-                if (projectItems.length > 0) {
-                  console.log(`Found in ${projectItems.length} GitHub Projects V2:`);
-                  for (const item of projectItems) {
-                    const project = item.project;
-                    console.log(`\n  PROJECT: ${project.title} (#${project.number})`);
-                    console.log(`  URL: ${project.url}`);
-                    console.log(`  Owner: ${project.owner.login} (${project.owner.__typename})`);
-                    console.log(`  Item ID: ${item.id}`);
-                    
-                    console.log("  Field values:");
-                    if (item.fieldValues.nodes.length === 0) {
-                      console.log("    No field values found");
-                    }
-                    
-                    for (const field of item.fieldValues.nodes) {
-                      if (field.__typename === 'ProjectV2ItemFieldSingleSelectValue') {
-                        console.log(`    - ${field.field?.name || 'Unknown field'}: ${field.name}`);
-                        
-                        // Check if this is a status field with an "in progress" value
-                        const fieldNameLower = (field.field?.name || '').toLowerCase();
-                        const valueLower = field.name.toLowerCase();
-                        
-                        if (fieldNameLower.includes('status') || fieldNameLower === 'state') {
-                          if (['in progress', 'in-progress', 'inprogress', 'doing', 'active', 'started'].includes(valueLower)) {
-                            console.log(`      >>> THIS IS AN "IN PROGRESS" STATUS <<<`);
-                          }
-                        }
-                      } else if (field.__typename === 'ProjectV2ItemFieldTextValue') {
-                        console.log(`    - ${field.field?.name || 'Unknown field'} (text): ${field.text}`);
-                      } else if (field.__typename === 'ProjectV2ItemFieldDateValue') {
-                        console.log(`    - ${field.field?.name || 'Unknown field'} (date): ${field.date}`);
-                      } else if (field.__typename === 'ProjectV2ItemFieldIterationValue') {
-                        console.log(`    - ${field.field?.name || 'Unknown field'} (iteration): ${field.title}`);
-                      } else if (field.__typename === 'ProjectV2ItemFieldNumberValue') {
-                        console.log(`    - ${field.field?.name || 'Unknown field'} (number): ${field.number}`);
-                      } else {
-                        console.log(`    - Unknown field type: ${field.__typename}`);
-                      }
-                    }
-                  }
-                } else {
-                  console.log("Not found in any GitHub Projects V2");
-                }
-              } catch (error) {
-                console.error(`Error fetching Projects V2 data: ${error.message}`);
-              }
-              
-              // Classic Projects
-              console.log("\n=== CLASSIC PROJECTS ===");
-              try {
-                const classicQuery = `
-                  query GetIssueClassicProjects($owner: String!, $repo: String!, $number: Int!) {
-                    repository(owner: $owner, name: $repo) {
-                      issue(number: $number) {
-                        projectCards(first: 20) {
-                          nodes {
-                            id
-                            project {
-                              id
-                              name
-                              url
-                              number
-                              body
-                              owner {
-                                __typename
-                                ... on User {
-                                  login
-                                }
-                                ... on Organization {
-                                  login
-                                }
-                              }
-                            }
-                            column {
-                              id
-                              name
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                `;
-                
-                const classicResult = await github.graphql(classicQuery, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  number: issueNumber
-                });
-                
-                const projectCards = classicResult.repository.issue.projectCards.nodes;
-                
-                if (projectCards.length > 0) {
-                  console.log(`Found in ${projectCards.length} Classic Projects:`);
-                  for (const card of projectCards) {
-                    const project = card.project;
-                    console.log(`\n  PROJECT: ${project.name} (#${project.number})`);
-                    console.log(`  URL: ${project.url}`);
-                    console.log(`  Owner: ${project.owner.login} (${project.owner.__typename})`);
-                    console.log(`  Description: ${project.body || '(No description)'}`);
-                    console.log(`  Card ID: ${card.id}`);
-                    
-                    if (card.column) {
-                      console.log(`  Column: ${card.column.name}`);
-                      
-                      // Check if column name indicates "in progress"
-                      const columnNameLower = card.column.name.toLowerCase();
-                      if (['in progress', 'in-progress', 'inprogress', 'doing', 'active', 'started'].includes(columnNameLower)) {
-                        console.log(`  >>> THIS IS AN "IN PROGRESS" COLUMN <<<`);
-                      }
-                    } else {
-                      console.log(`  No column information available`);
-                    }
-                  }
-                } else {
-                  console.log("Not found in any Classic Projects");
-                }
-              } catch (error) {
-                console.error(`Error fetching Classic Projects data: ${error.message}`);
-              }
-              
-              // External project integrations (ZenHub etc)
-              console.log("\n=== EXTERNAL REFERENCES ===");
-              // We can't directly access ZenHub data from GitHub Actions, but we can look for references
-              const bodyAndComments = [
-                issue.body || '',
-                ...(await github.rest.issues.listComments({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber
-                })).data.map(c => c.body || '')
-              ].join('\n');
-              
-              // Look for ZenHub references
-              const zenhubMatches = bodyAndComments.match(/zenhub\.com\/[^\s)]+/g) || [];
-              if (zenhubMatches.length > 0) {
-                console.log("Potential ZenHub references found:");
-                for (const match of zenhubMatches) {
-                  console.log(`  - ${match}`);
-                }
-              } else {
-                console.log("No ZenHub references found in issue body or comments");
-              }
-              
-              // Raw issue data (for debugging)
-              console.log("\n=== RAW ISSUE DATA ===");
-              console.log(JSON.stringify(issue, null, 2));
+            // Filter to keep only "bug" label if present
+            const keepLabels = issue.labels
+              .map(label => label.name)
+              .filter(label => label === "bug" || label === "in-progress");
+            
+            // Add "documentation" label if not already present
+            if (!keepLabels.includes("documentation")) {
+              keepLabels.push("documentation");
             }
             
-            console.log("\n================ END SUPER DETAILED DEBUGGING ================");
+            console.log(`Updating labels to: ${keepLabels.join(', ')}`);
+            
+            // Update issue with the new set of labels
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: keepLabels
+            });
+            
+            console.log(`Successfully updated labels for issue #${issueNumber}`);
+
+      - name: Process specific issue (from workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.issue_number != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            console.log(`Processing issue #${issueNumber} from manual trigger`);
+            
+            // Get issue details
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+            
+            // Check if issue has the "in-progress" label
+            const labels = issue.labels.map(label => 
+              typeof label === 'object' ? label.name : label
+            );
+            
+            const hasInProgressLabel = labels.includes('in-progress');
+            console.log(`Issue #${issueNumber} has in-progress label: ${hasInProgressLabel}`);
+            
+            if (!hasInProgressLabel) {
+              console.log(`Issue #${issueNumber} doesn't have the 'in-progress' label. No action taken.`);
+              return;
+            }
+            
+            // Filter to keep only "bug" label if present
+            const keepLabels = labels.filter(label => 
+              label === "bug" || label === "in-progress"
+            );
+            
+            // Add "documentation" label if not already present
+            if (!keepLabels.includes("documentation")) {
+              keepLabels.push("documentation");
+            }
+            
+            console.log(`Updating labels to: ${keepLabels.join(', ')}`);
+            
+            // Update issue with the new set of labels
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: keepLabels
+            });
+            
+            console.log(`Successfully updated labels for issue #${issueNumber}`);
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+
+      - name: Setup for ZenHub integration
+        if: github.event_name == 'workflow_dispatch' && inputs.issue_number == ''
+        run: |
+          echo "## ZenHub Integration Instructions"
+          echo ""
+          echo "Based on the debug output, we can see that GitHub Actions cannot directly access ZenHub data."
+          echo ""
+          echo "To make this workflow work with ZenHub, please follow these steps:"
+          echo ""
+          echo "1. Create a new label called 'in-progress' in your repository:"
+          echo "   - Go to your repository → Issues → Labels"
+          echo "   - Click 'New label'"
+          echo "   - Name it 'in-progress'"
+          echo ""
+          echo "2. Set up a process to add the 'in-progress' label when an issue moves to 'In Progress' in ZenHub:"
+          echo "   - You can do this manually when you move items in ZenHub"
+          echo "   - For automation, consider using ZenHub's webhooks or API if available"
+          echo ""
+          echo "3. Once an issue has the 'in-progress' label:"
+          echo "   - This workflow will automatically:"
+          echo "     - Keep only the 'bug' label (if present)"
+          echo "     - Add the 'documentation' label"
+          echo "     - Keep the 'in-progress' label"
+          echo ""
+          echo "4. To test the workflow with a specific issue:"
+          echo "   - Add the 'in-progress' label to an issue"
+          echo "   - Or run this workflow manually with the issue number"
