@@ -31,8 +31,9 @@ export class Food {
   }
 
   /**
-   * Generate a new random position for the food
-   * @param snake The snake object to avoid placing food on the snake
+   * Generates a new random position for the food.
+   * Ensures the new position is not on the snake's body if a snake object is provided.
+   * @param snake Optional. The snake object. Used to avoid placing food on the snake.
    */
   generateNewPosition(snake?: Snake): void {
     let newPosition: Position;
