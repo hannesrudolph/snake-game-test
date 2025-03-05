@@ -12,120 +12,156 @@ permissions:
   contents: read
 
 jobs:
-  manage-labels:
+  debug-issues:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug GitHub Projects and Issues
+      - name: Super Detailed Issue Debugging
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("================ DETAILED DEBUGGING MODE ================");
+            console.log("================ SUPER DETAILED ISSUE DEBUGGING ================");
+            console.log("Repository: " + context.repo.owner + "/" + context.repo.repo);
+            console.log("Workflow triggered by: " + context.eventName);
             
-            // First try to list all available projects for the user
-            try {
-              const viewerQuery = `
-                query {
-                  viewer {
-                    login
-                    projectsV2(first: 10) {
-                      nodes {
-                        id
-                        number
-                        title
-                        url
-                        items(first: 5) {
-                          nodes {
-                            id
-                            fieldValues(first: 10) {
-                              nodes {
-                                __typename
-                                ... on ProjectV2ItemFieldSingleSelectValue {
-                                  name
-                                  field {
-                                    ... on ProjectV2SingleSelectField {
-                                      name
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              `;
-              
-              const viewerResult = await github.graphql(viewerQuery);
-              console.log("Authenticated user:", viewerResult.viewer.login);
-              console.log("Available projects for viewer:");
-              for (const project of viewerResult.viewer.projectsV2.nodes) {
-                console.log(`- Project: ${project.title} (#${project.number})`);
-                console.log(`  URL: ${project.url}`);
-                console.log(`  ID: ${project.id}`);
-                if (project.items.nodes.length > 0) {
-                  console.log(`  Sample items: ${project.items.nodes.length}`);
-                  for (const item of project.items.nodes) {
-                    console.log(`    Item ID: ${item.id}`);
-                    for (const fieldValue of item.fieldValues.nodes) {
-                      if (fieldValue.__typename === 'ProjectV2ItemFieldSingleSelectValue') {
-                        console.log(`      Field: ${fieldValue.field?.name || 'Unknown'}, Value: ${fieldValue.name}`);
-                      } else {
-                        console.log(`      Field type: ${fieldValue.__typename}`);
-                      }
-                    }
-                  }
-                } else {
-                  console.log(`  No items found in sample`);
-                }
-              }
-            } catch (error) {
-              console.error("Error listing projects:", error.message);
-            }
-            
-            // Try to list repositories for the authenticated user
-            try {
-              const { data: repos } = await github.rest.repos.listForAuthenticatedUser();
-              console.log("Repositories accessible to workflow:");
-              for (const repo of repos.slice(0, 5)) { // List first 5 repos for brevity
-                console.log(`- ${repo.full_name}`);
-              }
-              if (repos.length > 5) {
-                console.log(`... and ${repos.length - 5} more`);
-              }
-            } catch (error) {
-              console.error("Error listing repositories:", error.message);
-            }
-            
-            // Get issues for detailed inspection
-            const { data: issues } = await github.rest.issues.listForRepo({
+            // Get all open issues
+            console.log("\nFetching all issues...");
+            const { data: allIssues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open'
+              state: 'all', // Get both open and closed issues
+              per_page: 100
             });
             
-            console.log(`\n============ FOUND ${issues.length} OPEN ISSUES ============\n`);
+            // Log issue count
+            console.log(`Found ${allIssues.length} total issues`);
             
-            for (const issue of issues) {
+            // Process each issue with super detailed information
+            for (const issue of allIssues) {
               const issueNumber = issue.number;
               
-              // Skip pull requests
+              // Skip pull requests if they show up in issues list
               if (issue.pull_request) {
-                console.log(`Issue #${issueNumber} is a pull request, skipping`);
+                console.log(`\nSkipping #${issueNumber} (${issue.title}) - This is a pull request`);
                 continue;
               }
               
-              console.log(`\n========== DETAILED DEBUG FOR ISSUE #${issueNumber}: ${issue.title} ==========`);
+              console.log(`\n================================================================`);
+              console.log(`COMPLETE ISSUE #${issueNumber} DETAILS: ${issue.title}`);
+              console.log(`================================================================`);
+              
+              // Basic issue information
+              console.log("\n=== BASIC INFO ===");
               console.log(`URL: ${issue.html_url}`);
+              console.log(`Number: ${issueNumber}`);
+              console.log(`Title: ${issue.title}`);
               console.log(`State: ${issue.state}`);
               console.log(`Created: ${issue.created_at}`);
               console.log(`Updated: ${issue.updated_at}`);
-              console.log(`Labels: ${issue.labels.map(l => l.name).join(', ') || 'None'}`);
-              console.log(`Assignees: ${issue.assignees.map(a => a.login).join(', ') || 'None'}`);
+              if (issue.closed_at) {
+                console.log(`Closed: ${issue.closed_at}`);
+              }
               
-              // Try to get projects v2 data for this issue
+              // User information
+              console.log("\n=== USER INFO ===");
+              console.log(`Created by: ${issue.user.login} (${issue.user.html_url})`);
+              if (issue.assignee) {
+                console.log(`Assignee: ${issue.assignee.login}`);
+              }
+              if (issue.assignees && issue.assignees.length > 0) {
+                console.log(`All Assignees: ${issue.assignees.map(a => a.login).join(', ')}`);
+              }
+              
+              // Content
+              console.log("\n=== CONTENT ===");
+              console.log("Body:");
+              console.log(issue.body || "(No description provided)");
+              
+              // Labels
+              console.log("\n=== LABELS ===");
+              if (issue.labels && issue.labels.length > 0) {
+                console.log(`Labels (${issue.labels.length}):`);
+                for (const label of issue.labels) {
+                  console.log(`- ${label.name} (${label.color}): ${label.description || 'No description'}`);
+                }
+              } else {
+                console.log("No labels");
+              }
+              
+              // Milestones
+              console.log("\n=== MILESTONE ===");
+              if (issue.milestone) {
+                console.log(`Milestone: ${issue.milestone.title}`);
+                console.log(`Description: ${issue.milestone.description || 'No description'}`);
+                console.log(`Due on: ${issue.milestone.due_on || 'No due date'}`);
+              } else {
+                console.log("No milestone assigned");
+              }
+              
+              // Comments
+              console.log("\n=== COMMENTS ===");
+              try {
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                });
+                
+                if (comments.length > 0) {
+                  console.log(`Comments (${comments.length}):`);
+                  for (const comment of comments) {
+                    console.log(`- ${comment.user.login} at ${comment.created_at}:`);
+                    console.log(`  ${comment.body.replace(/\n/g, '\n  ')}`);
+                    console.log("");
+                  }
+                } else {
+                  console.log("No comments");
+                }
+              } catch (error) {
+                console.error(`Error fetching comments: ${error.message}`);
+              }
+              
+              // Events (timeline)
+              console.log("\n=== TIMELINE ===");
+              try {
+                const { data: timeline } = await github.rest.issues.listEventsForTimeline({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  per_page: 100
+                });
+                
+                if (timeline.length > 0) {
+                  console.log(`Timeline events (${timeline.length}):`);
+                  for (const event of timeline) {
+                    console.log(`- [${event.created_at}] ${event.event}`);
+                    
+                    // Log different properties based on event type
+                    if (event.event === 'labeled' || event.event === 'unlabeled') {
+                      console.log(`  Label: ${event.label?.name}`);
+                    } else if (event.event === 'milestoned' || event.event === 'demilestoned') {
+                      console.log(`  Milestone: ${event.milestone?.title}`);
+                    } else if (event.event === 'assigned' || event.event === 'unassigned') {
+                      console.log(`  Assignee: ${event.assignee?.login}`);
+                    } else if (event.event === 'referenced') {
+                      console.log(`  Commit: ${event.commit_id}`);
+                    } else if (event.event === 'cross-referenced') {
+                      console.log(`  Reference: ${event.source?.issue?.html_url || event.source?.issue?.url}`);
+                    } else if (event.event === 'moved_columns_in_project') {
+                      console.log(`  Project: ${event.project_card?.project_url}`);
+                      console.log(`  Column: ${event.project_card?.column_name}`);
+                    }
+                  }
+                } else {
+                  console.log("No timeline events");
+                }
+              } catch (error) {
+                console.error(`Error fetching timeline: ${error.message}`);
+              }
+              
+              // GitHub Projects V2
+              console.log("\n=== GITHUB PROJECTS V2 ===");
               try {
                 const projectsQuery = `
                   query GetIssueProjects($owner: String!, $repo: String!, $number: Int!) {
@@ -139,6 +175,15 @@ jobs:
                               number
                               title
                               url
+                              owner {
+                                __typename
+                                ... on User {
+                                  login
+                                }
+                                ... on Organization {
+                                  login
+                                }
+                              }
                             }
                             fieldValues(first: 20) {
                               nodes {
@@ -179,21 +224,16 @@ jobs:
                                     }
                                   }
                                 }
+                                ... on ProjectV2ItemFieldNumberValue {
+                                  number
+                                  field {
+                                    ... on ProjectV2Field {
+                                      id
+                                      name
+                                    }
+                                  }
+                                }
                               }
-                            }
-                          }
-                        }
-                        projectCards(first: 20) {
-                          nodes {
-                            id
-                            project {
-                              id
-                              name
-                              url
-                            }
-                            column {
-                              id
-                              name
                             }
                           }
                         }
@@ -209,83 +249,154 @@ jobs:
                 });
                 
                 const projectItems = projectsResult.repository.issue.projectItems.nodes;
-                console.log(`\nProjects V2 (${projectItems.length}):`);
                 
-                if (projectItems.length === 0) {
-                  console.log("  Issue is not in any Projects V2");
-                }
-                
-                for (const item of projectItems) {
-                  console.log(`  Project: ${item.project.title} (#${item.project.number})`);
-                  console.log(`  URL: ${item.project.url}`);
-                  console.log(`  Fields:`);
-                  
-                  for (const field of item.fieldValues.nodes) {
-                    if (field.__typename === 'ProjectV2ItemFieldSingleSelectValue') {
-                      console.log(`    - ${field.field?.name || 'Unknown field'}: ${field.name}`);
-                      
-                      // Check if this is a status field with an "in progress" value
-                      const fieldNameLower = (field.field?.name || '').toLowerCase();
-                      const valueLower = field.name.toLowerCase();
-                      
-                      if (fieldNameLower.includes('status') || fieldNameLower === 'state') {
-                        console.log(`      This is a status field. Value is "${field.name}"`);
-                        if (['in progress', 'in-progress', 'inprogress', 'doing', 'active', 'started'].includes(valueLower)) {
-                          console.log(`      >>> THIS MATCHES "IN PROGRESS" CRITERIA <<<`);
-                        } else {
-                          console.log(`      This doesn't match any "in progress" criteria`);
-                        }
-                      }
-                    } else if (field.__typename === 'ProjectV2ItemFieldTextValue') {
-                      console.log(`    - ${field.field?.name || 'Unknown field'} (text): ${field.text}`);
-                    } else if (field.__typename === 'ProjectV2ItemFieldDateValue') {
-                      console.log(`    - ${field.field?.name || 'Unknown field'} (date): ${field.date}`);
-                    } else if (field.__typename === 'ProjectV2ItemFieldIterationValue') {
-                      console.log(`    - ${field.field?.name || 'Unknown field'} (iteration): ${field.title}`);
-                    } else {
-                      console.log(`    - Unknown field type: ${field.__typename}`);
-                    }
-                  }
-                }
-                
-                // Classic projects
-                const projectCards = projectsResult.repository.issue.projectCards.nodes;
-                console.log(`\nClassic Projects (${projectCards.length}):`);
-                
-                if (projectCards.length === 0) {
-                  console.log("  Issue is not in any classic projects");
-                }
-                
-                for (const card of projectCards) {
-                  console.log(`  Project: ${card.project.name}`);
-                  console.log(`  URL: ${card.project.url}`);
-                  
-                  if (card.column) {
-                    console.log(`  Column: ${card.column.name}`);
+                if (projectItems.length > 0) {
+                  console.log(`Found in ${projectItems.length} GitHub Projects V2:`);
+                  for (const item of projectItems) {
+                    const project = item.project;
+                    console.log(`\n  PROJECT: ${project.title} (#${project.number})`);
+                    console.log(`  URL: ${project.url}`);
+                    console.log(`  Owner: ${project.owner.login} (${project.owner.__typename})`);
+                    console.log(`  Item ID: ${item.id}`);
                     
-                    // Check if column name indicates "in progress"
-                    const columnNameLower = card.column.name.toLowerCase();
-                    if (['in progress', 'in-progress', 'inprogress', 'doing', 'active', 'started'].includes(columnNameLower)) {
-                      console.log(`  >>> COLUMN MATCHES "IN PROGRESS" CRITERIA <<<`);
-                    } else {
-                      console.log(`  Column doesn't match any "in progress" criteria`);
+                    console.log("  Field values:");
+                    if (item.fieldValues.nodes.length === 0) {
+                      console.log("    No field values found");
                     }
-                  } else {
-                    console.log(`  No column information available`);
+                    
+                    for (const field of item.fieldValues.nodes) {
+                      if (field.__typename === 'ProjectV2ItemFieldSingleSelectValue') {
+                        console.log(`    - ${field.field?.name || 'Unknown field'}: ${field.name}`);
+                        
+                        // Check if this is a status field with an "in progress" value
+                        const fieldNameLower = (field.field?.name || '').toLowerCase();
+                        const valueLower = field.name.toLowerCase();
+                        
+                        if (fieldNameLower.includes('status') || fieldNameLower === 'state') {
+                          if (['in progress', 'in-progress', 'inprogress', 'doing', 'active', 'started'].includes(valueLower)) {
+                            console.log(`      >>> THIS IS AN "IN PROGRESS" STATUS <<<`);
+                          }
+                        }
+                      } else if (field.__typename === 'ProjectV2ItemFieldTextValue') {
+                        console.log(`    - ${field.field?.name || 'Unknown field'} (text): ${field.text}`);
+                      } else if (field.__typename === 'ProjectV2ItemFieldDateValue') {
+                        console.log(`    - ${field.field?.name || 'Unknown field'} (date): ${field.date}`);
+                      } else if (field.__typename === 'ProjectV2ItemFieldIterationValue') {
+                        console.log(`    - ${field.field?.name || 'Unknown field'} (iteration): ${field.title}`);
+                      } else if (field.__typename === 'ProjectV2ItemFieldNumberValue') {
+                        console.log(`    - ${field.field?.name || 'Unknown field'} (number): ${field.number}`);
+                      } else {
+                        console.log(`    - Unknown field type: ${field.__typename}`);
+                      }
+                    }
                   }
+                } else {
+                  console.log("Not found in any GitHub Projects V2");
                 }
-                
               } catch (error) {
-                console.error(`Error getting project data for issue #${issueNumber}: ${error.message}`);
-                if (error.request) {
-                  console.error(`Request: ${JSON.stringify(error.request)}`);
-                }
+                console.error(`Error fetching Projects V2 data: ${error.message}`);
               }
               
-              console.log("\n"); // Add some spacing between issues
+              // Classic Projects
+              console.log("\n=== CLASSIC PROJECTS ===");
+              try {
+                const classicQuery = `
+                  query GetIssueClassicProjects($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      issue(number: $number) {
+                        projectCards(first: 20) {
+                          nodes {
+                            id
+                            project {
+                              id
+                              name
+                              url
+                              number
+                              body
+                              owner {
+                                __typename
+                                ... on User {
+                                  login
+                                }
+                                ... on Organization {
+                                  login
+                                }
+                              }
+                            }
+                            column {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
+                
+                const classicResult = await github.graphql(classicQuery, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  number: issueNumber
+                });
+                
+                const projectCards = classicResult.repository.issue.projectCards.nodes;
+                
+                if (projectCards.length > 0) {
+                  console.log(`Found in ${projectCards.length} Classic Projects:`);
+                  for (const card of projectCards) {
+                    const project = card.project;
+                    console.log(`\n  PROJECT: ${project.name} (#${project.number})`);
+                    console.log(`  URL: ${project.url}`);
+                    console.log(`  Owner: ${project.owner.login} (${project.owner.__typename})`);
+                    console.log(`  Description: ${project.body || '(No description)'}`);
+                    console.log(`  Card ID: ${card.id}`);
+                    
+                    if (card.column) {
+                      console.log(`  Column: ${card.column.name}`);
+                      
+                      // Check if column name indicates "in progress"
+                      const columnNameLower = card.column.name.toLowerCase();
+                      if (['in progress', 'in-progress', 'inprogress', 'doing', 'active', 'started'].includes(columnNameLower)) {
+                        console.log(`  >>> THIS IS AN "IN PROGRESS" COLUMN <<<`);
+                      }
+                    } else {
+                      console.log(`  No column information available`);
+                    }
+                  }
+                } else {
+                  console.log("Not found in any Classic Projects");
+                }
+              } catch (error) {
+                console.error(`Error fetching Classic Projects data: ${error.message}`);
+              }
+              
+              // External project integrations (ZenHub etc)
+              console.log("\n=== EXTERNAL REFERENCES ===");
+              // We can't directly access ZenHub data from GitHub Actions, but we can look for references
+              const bodyAndComments = [
+                issue.body || '',
+                ...(await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber
+                })).data.map(c => c.body || '')
+              ].join('\n');
+              
+              // Look for ZenHub references
+              const zenhubMatches = bodyAndComments.match(/zenhub\.com\/[^\s)]+/g) || [];
+              if (zenhubMatches.length > 0) {
+                console.log("Potential ZenHub references found:");
+                for (const match of zenhubMatches) {
+                  console.log(`  - ${match}`);
+                }
+              } else {
+                console.log("No ZenHub references found in issue body or comments");
+              }
+              
+              // Raw issue data (for debugging)
+              console.log("\n=== RAW ISSUE DATA ===");
+              console.log(JSON.stringify(issue, null, 2));
             }
             
-            console.log("================ END DETAILED DEBUGGING ================");
-            
-            // For now, we're only doing debugging, not updating labels
-            console.log("This is a debugging run - no labels will be modified");
+            console.log("\n================ END SUPER DETAILED DEBUGGING ================");
