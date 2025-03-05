@@ -1,161 +1,82 @@
 name: Manage Issue Labels
 
 on:
-  workflow_dispatch:  # Manual trigger for testing
+  # Trigger when issues are labeled
+  issues:
+    types: [labeled]
+  # Also run periodically to ensure consistency
   schedule:
     - cron: '*/15 * * * *'  # Run every 15 minutes
+  # Manual trigger for testing
+  workflow_dispatch:
 
-# Add explicit permissions
 permissions:
-  contents: read
   issues: write
+  contents: read
 
 jobs:
   manage-labels:
     runs-on: ubuntu-latest
     steps:
-      - name: Find and manage issue labels
+      - name: Process labels when an issue gets the "in-progress" label
+        if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'in-progress'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("Starting label management workflow");
+            const issue = context.payload.issue;
+            const issueNumber = issue.number;
             
-            // First get all open issues in this repository
+            console.log(`Issue #${issueNumber} got labeled with "in-progress". Managing labels...`);
+            
+            // Get current labels
+            const currentLabels = issue.labels.map(label => label.name);
+            console.log(`Current labels: ${currentLabels.join(', ') || 'none'}`);
+            
+            // Filter to keep only "bug" label if present
+            const keepLabels = currentLabels.filter(label => label === "bug" || label === "in-progress");
+            
+            // Add "documentation" label if not already present
+            if (!keepLabels.includes("documentation")) {
+              keepLabels.push("documentation");
+            }
+            
+            // Skip if labels are unchanged
+            if (currentLabels.length === keepLabels.length && 
+                currentLabels.every(label => keepLabels.includes(label))) {
+              console.log(`Labels already correct for issue #${issueNumber}, skipping update`);
+              return;
+            }
+            
+            console.log(`Updating labels for issue #${issueNumber} to: ${keepLabels.join(', ')}`);
+            
+            // Update issue with the new set of labels
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: keepLabels
+            });
+            
+            console.log(`Successfully updated labels for issue #${issueNumber}`);
+
+      - name: Scan for issues with "in-progress" label and manage their labels
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            console.log("Scanning for issues with 'in-progress' label...");
+            
+            // Get all open issues with the "in-progress" label
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open'
+              state: 'open',
+              labels: 'in-progress'
             });
             
-            console.log(`Found ${issues.length} open issues`);
-            
-            // Define a list of status strings that indicate "In Progress"
-            const inProgressStatuses = [
-              'in progress', 
-              'in-progress', 
-              'inprogress', 
-              'working', 
-              'started', 
-              'doing',
-              'active'
-            ];
-            
-            // Function to fetch project info and status for an issue
-            async function getIssueProjectStatus(issueNumber) {
-              try {
-                // Using GraphQL to get detailed project information
-                const query = `
-                  query GetIssueProjectDetails($owner: String!, $repo: String!, $issueNumber: Int!) {
-                    repository(owner: $owner, name: $repo) {
-                      issue(number: $issueNumber) {
-                        title
-                        projectItems(first: 20) {
-                          nodes {
-                            project {
-                              id
-                              title
-                              url
-                            }
-                            fieldValues(first: 20) {
-                              nodes {
-                                __typename
-                                ... on ProjectV2ItemFieldTextValue {
-                                  text
-                                  field { name }
-                                }
-                                ... on ProjectV2ItemFieldDateValue {
-                                  date
-                                  field { name }
-                                }
-                                ... on ProjectV2ItemFieldSingleSelectValue {
-                                  name
-                                  field { name }
-                                }
-                              }
-                            }
-                          }
-                        }
-                        
-                        # Also try to get ZenHub data if it's a ZenHub project
-                        projectCards(first: 20) {
-                          nodes {
-                            column {
-                              name
-                            }
-                            project {
-                              name
-                              url
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                `;
-                
-                const result = await github.graphql(query, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issueNumber: issueNumber
-                });
-                
-                const issue = result.repository.issue;
-                
-                // Log ALL project associations for debugging
-                console.log(`Project associations for issue #${issueNumber} (${issue.title}):`);
-                
-                // Process projectItems (GitHub Projects v2)
-                for (const projectItem of issue.projectItems.nodes) {
-                  console.log(`- Project: ${projectItem.project.title} (${projectItem.project.url})`);
-                  console.log(`  Fields:`);
-                  
-                  for (const fieldValue of projectItem.fieldValues.nodes) {
-                    if (fieldValue.__typename === 'ProjectV2ItemFieldSingleSelectValue') {
-                      console.log(`  - ${fieldValue.field.name}: ${fieldValue.name}`);
-                      
-                      // Check if this is a status field with an "in progress" value (case insensitive)
-                      const fieldNameLower = fieldValue.field.name.toLowerCase();
-                      const valueLower = fieldValue.name.toLowerCase();
-                      
-                      if ((fieldNameLower.includes('status') || fieldNameLower === 'state') && 
-                          inProgressStatuses.includes(valueLower)) {
-                        return {
-                          inProgress: true,
-                          projectName: projectItem.project.title
-                        };
-                      }
-                    } else if (fieldValue.__typename === 'ProjectV2ItemFieldTextValue') {
-                      console.log(`  - ${fieldValue.field.name}: ${fieldValue.text}`);
-                    } else {
-                      console.log(`  - ${fieldValue.__typename}: ${JSON.stringify(fieldValue)}`);
-                    }
-                  }
-                }
-                
-                // Process projectCards (GitHub Projects v1 and potentially ZenHub)
-                for (const card of issue.projectCards.nodes) {
-                  console.log(`- Classic Project: ${card.project.name} (${card.project.url})`);
-                  if (card.column) {
-                    console.log(`  Column: ${card.column.name}`);
-                    
-                    // Check if column name indicates "in progress"
-                    const columnNameLower = card.column.name.toLowerCase();
-                    if (inProgressStatuses.includes(columnNameLower)) {
-                      return {
-                        inProgress: true,
-                        projectName: card.project.name
-                      };
-                    }
-                  }
-                }
-                
-                return { inProgress: false };
-              } catch (error) {
-                console.error(`Error getting project status for issue #${issueNumber}: ${error.message}`);
-                return { inProgress: false, error: error.message };
-              }
-            }
+            console.log(`Found ${issues.length} issues with 'in-progress' label`);
             
             // Process each issue
             for (const issue of issues) {
@@ -168,29 +89,16 @@ jobs:
                 continue;
               }
               
-              // Get project status for this issue
-              const status = await getIssueProjectStatus(issueNumber);
-              
-              if (status.error) {
-                console.log(`Error checking project status: ${status.error}`);
-                continue;
-              }
-              
-              if (!status.inProgress) {
-                console.log(`Issue #${issueNumber} is not in "In Progress" status in any project`);
-                continue;
-              }
-              
-              console.log(`Issue #${issueNumber} is in "In Progress" status in project "${status.projectName}"`);
-              
               // Get current labels
               const currentLabels = issue.labels.map(label => 
                 typeof label === 'object' ? label.name : label
               );
               console.log(`Current labels: ${currentLabels.join(', ') || 'none'}`);
               
-              // Filter to keep only "bug" label if present
-              const keepLabels = currentLabels.filter(label => label === "bug");
+              // Filter to keep only "bug" label if present, and the "in-progress" label
+              const keepLabels = currentLabels.filter(label => 
+                label === "bug" || label === "in-progress"
+              );
               
               // Add "documentation" label if not already present
               if (!keepLabels.includes("documentation")) {
