@@ -4,7 +4,6 @@ on:
   project_card:
     types: [moved]
 
-# Add explicit permissions
 permissions:
   contents: read
   issues: write
@@ -56,6 +55,12 @@ jobs:
             const issueNumber = parseInt(issueMatch[1], 10);
             core.setOutput("issue_number", issueNumber.toString());
             core.setOutput("has_issue", "true");
+
+      - name: Debugging Output
+        run: |
+          echo "is_in_progress: ${{ steps.check-card-column.outputs.is_in_progress }}"
+          echo "has_issue: ${{ steps.check-card-column.outputs.has_issue }}"
+          echo "issue_number: ${{ steps.check-card-column.outputs.issue_number }}"
 
       - name: Manage issue labels
         if: steps.check-card-column.outputs.is_in_progress == 'true' && steps.check-card-column.outputs.has_issue == 'true'
