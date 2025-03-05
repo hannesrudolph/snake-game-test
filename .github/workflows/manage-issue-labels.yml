@@ -1,0 +1,87 @@
+name: Manage Issue Labels
+
+on:
+  project_card:
+    types: [moved]
+
+jobs:
+  manage-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if card moved to "In Progress"
+        id: check-card-column
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const cardId = context.payload.project_card.id;
+            const columnId = context.payload.project_card.column_id;
+            
+            // Get the column details to check if it's "In Progress"
+            const column = await github.rest.projects.getColumn({
+              column_id: columnId
+            });
+            
+            // Skip if not moved to "In Progress"
+            if (column.data.name.toLowerCase() !== "in progress") {
+              core.setOutput("is_in_progress", "false");
+              return;
+            }
+            
+            core.setOutput("is_in_progress", "true");
+            
+            // Check if the card is linked to an issue
+            const card = await github.rest.projects.getCard({
+              card_id: cardId
+            });
+            
+            // If card content URL doesn't exist, it's not an issue
+            if (!card.data.content_url) {
+              core.setOutput("has_issue", "false");
+              return;
+            }
+            
+            // Extract issue number from content_url
+            const issueMatch = card.data.content_url.match(/\/issues\/(\d+)$/);
+            if (!issueMatch) {
+              core.setOutput("has_issue", "false");
+              return;
+            }
+            
+            const issueNumber = parseInt(issueMatch[1], 10);
+            core.setOutput("issue_number", issueNumber.toString());
+            core.setOutput("has_issue", "true");
+
+      - name: Manage issue labels
+        if: steps.check-card-column.outputs.is_in_progress == 'true' && steps.check-card-column.outputs.has_issue == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            
+            // Get current issue details
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+            
+            // Filter existing labels - keep only "bug" label if present
+            const existingLabels = issue.data.labels.map(label => label.name);
+            const keepLabels = existingLabels.filter(label => label === "bug");
+            
+            // Add "documentation" label if not already present
+            if (!keepLabels.includes("documentation")) {
+              keepLabels.push("documentation");
+            }
+            
+            // Update issue with the new set of labels
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: keepLabels
+            });
+            
+            console.log(`Updated issue #${issueNumber} labels to: ${keepLabels.join(", ")}`);
+        env:
+          ISSUE_NUMBER: ${{ steps.check-card-column.outputs.issue_number }}
