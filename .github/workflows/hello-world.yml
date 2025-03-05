@@ -9,11 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Print Hello World
-        run: echo "::debug::Hello World!"
-      
-      - name: Another way to show debug message
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.debug('Hello World from GitHub Script!')
+      - name: List GitHub Projects
+        run: gh project list --owner hannesrudolph --format json
