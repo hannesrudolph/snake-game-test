@@ -4,13 +4,19 @@ on:
   project_card:
     types: [moved]
 
+# Add explicit permissions
+permissions:
+  contents: read
+  issues: write
+  repository-projects: read
+
 jobs:
   manage-labels:
     runs-on: ubuntu-latest
     steps:
       - name: Check if card moved to "In Progress"
         id: check-card-column
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const cardId = context.payload.project_card.id;
@@ -53,7 +59,7 @@ jobs:
 
       - name: Manage issue labels
         if: steps.check-card-column.outputs.is_in_progress == 'true' && steps.check-card-column.outputs.has_issue == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
