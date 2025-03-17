@@ -9,27 +9,23 @@ on:
     - cron: '0 * * * *'
   # Also allow manual triggering for testing
   workflow_dispatch:
+
 permissions:
-  issues: write    # Needed to modify issue labels
-  contents: read   # Needed to access repository
-  repository-projects: read  # Needed to access project data
-  id-token: write  # Needed for stronger GitHub token
+  issues: write             # Needed to modify issue labels
+  contents: read            # Needed to access repository
+  repository-projects: write # Upgraded to write permission for better project access
 
 jobs:
   update-labels:
     name: Update Labels Based on Column
     runs-on: ubuntu-latest
-    
     steps:
       - name: Sync issue labels with project board columns
         uses: actions/github-script@v6
         with:
-          # Use a personal access token with proper scope instead of the default GITHUB_TOKEN
-          # This requires creating a PAT with 'read:project' scope and adding it as a repository secret
-          github-token: ${{ secrets.PROJECT_ACCESS_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
             console.log('Starting project board to issue labels sync');
-            console.log('Using custom access token with expanded permissions');
             
             // Define which projects to process
             // Configured to only process the "Test Project" (ID 5) under user hannesrudolph
