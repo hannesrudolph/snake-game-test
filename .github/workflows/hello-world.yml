@@ -1,15 +1,216 @@
-name: Hello World Workflow
+name: Update Issue Labels from Project Board
 
-# This workflow is manually triggered
+# This workflow runs on a schedule to sync issue labels with project board columns
+# Since GitHub Actions doesn't have a direct event for Projects V2 item movements,
+# we'll use a scheduled approach
 on:
+  # Run every hour
+  schedule:
+    - cron: '0 * * * *'
+  # Also allow manual triggering for testing
   workflow_dispatch:
 
+permissions:
+  issues: write    # Needed to modify issue labels
+  contents: read   # Needed to access repository
+  repository-projects: read  # Needed to access project data
+
 jobs:
-  hello-world-job:
+  update-labels:
+    name: Update Labels Based on Column
     runs-on: ubuntu-latest
     
     steps:
-      - name: List GitHub Projects
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh project list --owner hannesrudolph --format json --private
+      - name: Sync issue labels with project board columns
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            console.log('Starting project board to issue labels sync');
+            
+            // Define mapping from column values to labels
+            // These should be adjusted based on your actual column names and desired labels
+            const columnToLabelMap = {
+              'To Do': 'status:backlog',
+              'In Progress': 'status:in-progress',
+              'In Review': 'status:review',
+              'Done': 'status:completed'
+            };
+            
+            try {
+              // Get organization/user projects
+              const ownerLogin = context.repo.owner;
+              
+              console.log(`Fetching projects for ${ownerLogin}`);
+              
+              // Query for organization/user projects
+              const projectsQuery = `
+                query($login: String!) {
+                  user(login: $login) {
+                    projectsV2(first: 10) {
+                      nodes {
+                        id
+                        title
+                        number
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              const projectsResult = await github.graphql(projectsQuery, {
+                login: ownerLogin
+              });
+              
+              // Process each project
+              for (const project of projectsResult.user.projectsV2.nodes) {
+                console.log(`Processing project: ${project.title} (#${project.number})`);
+                
+                // Find the status field
+                const statusField = project.fields.nodes.find(field =>
+                  field.name.toLowerCase().includes('status') ||
+                  field.name.toLowerCase() === 'state' ||
+                  field.name.toLowerCase() === 'column'
+                );
+                
+                if (!statusField) {
+                  console.log(`No status field found for project ${project.title}`);
+                  continue;
+                }
+                
+                console.log(`Using field "${statusField.name}" as status field`);
+                
+                // Get items in this project
+                const itemsQuery = `
+                  query($projectId: ID!) {
+                    node(id: $projectId) {
+                      ... on ProjectV2 {
+                        items(first: 100) {
+                          nodes {
+                            id
+                            content {
+                              ... on Issue {
+                                id
+                                number
+                                repository {
+                                  name
+                                  owner {
+                                    login
+                                  }
+                                }
+                              }
+                            }
+                            fieldValues(first: 20) {
+                              nodes {
+                                ... on ProjectV2ItemFieldSingleSelectValue {
+                                  name
+                                  field {
+                                    ... on ProjectV2SingleSelectField {
+                                      name
+                                      id
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
+                
+                const itemsResult = await github.graphql(itemsQuery, {
+                  projectId: project.id
+                });
+                
+                if (!itemsResult.node.items || !itemsResult.node.items.nodes) {
+                  console.log(`No items found in project ${project.title}`);
+                  continue;
+                }
+                
+                const items = itemsResult.node.items.nodes;
+                console.log(`Found ${items.length} items in project`);
+                
+                // Process each item
+                for (const item of items) {
+                  // Skip items that aren't issues
+                  if (!item.content || item.content.__typename !== 'Issue') {
+                    console.log('Skipping non-issue item');
+                    continue;
+                  }
+                  
+                  const issue = item.content;
+                  const issueNumber = issue.number;
+                  const repoName = issue.repository.name;
+                  const repoOwner = issue.repository.owner.login;
+                  
+                  console.log(`Processing issue #${issueNumber} in ${repoOwner}/${repoName}`);
+                  
+                  // Find the status field value for this item
+                  const statusFieldValue = item.fieldValues.nodes.find(value =>
+                    value.field && value.field.id === statusField.id
+                  );
+                  
+                  if (!statusFieldValue) {
+                    console.log(`No status value found for issue #${issueNumber}`);
+                    continue;
+                  }
+                  
+                  const columnValue = statusFieldValue.name;
+                  console.log(`Column value: ${columnValue}`);
+                  
+                  // Get the label for this column
+                  const newStatusLabel = columnToLabelMap[columnValue];
+                  if (!newStatusLabel) {
+                    console.log(`No label mapping defined for column value: ${columnValue}`);
+                    continue;
+                  }
+                  
+                  console.log(`Mapped to label: ${newStatusLabel}`);
+                  
+                  // Get current issue labels to preserve non-status labels
+                  const { data: issueData } = await github.rest.issues.get({
+                    owner: repoOwner,
+                    repo: repoName,
+                    issue_number: issueNumber
+                  });
+                  
+                  // Filter out existing status labels
+                  const nonStatusLabels = issueData.labels
+                    .filter(label => !label.name.startsWith('status:'))
+                    .map(label => label.name);
+                  
+                  // Add the new status label
+                  const newLabels = [...nonStatusLabels, newStatusLabel];
+                  
+                  // Update the issue with the new labels
+                  await github.rest.issues.update({
+                    owner: repoOwner,
+                    repo: repoName,
+                    issue_number: issueNumber,
+                    labels: newLabels
+                  });
+                  
+                  console.log(`Updated issue #${issueNumber} with labels: ${newLabels.join(', ')}`);
+                }
+              }
+              
+              console.log('Completed project board to issue labels sync');
+              
+            } catch (error) {
+              console.error('Error syncing labels:');
+              console.error(error);
+            }
