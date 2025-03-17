@@ -28,6 +28,13 @@ jobs:
           script: |
             console.log('Starting project board to issue labels sync');
             
+            // Define which projects to process (empty array means process all projects)
+            // Add project titles here to limit which projects are processed
+            const targetProjects = [
+              // For example: "Development Kanban Board", "Bug Tracker"
+              // Leave empty to process all projects
+            ];
+            
             // Define mapping from column values to labels
             // These should be adjusted based on your actual column names and desired labels
             const columnToLabelMap = {
@@ -76,6 +83,14 @@ jobs:
               
               // Process each project
               for (const project of projectsResult.user.projectsV2.nodes) {
+                console.log(`Found project: ${project.title} (#${project.number})`);
+                
+                // Skip projects not in the target list (if targets are specified)
+                if (targetProjects.length > 0 && !targetProjects.includes(project.title)) {
+                  console.log(`Skipping project: ${project.title} (not in target list)`);
+                  continue;
+                }
+                
                 console.log(`Processing project: ${project.title} (#${project.number})`);
                 
                 // Find the status field
