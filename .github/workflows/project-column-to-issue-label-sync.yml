@@ -35,12 +35,12 @@ jobs:
             ];
             
             // Define mapping from column values to labels
-            // These should be adjusted based on your actual column names and desired labels
+            // Configured for Test Project with specific labels
             const columnToLabelMap = {
               'To Do': 'status:backlog',
-              'In Progress': 'status:in-progress',
+              'In Progress': 'bug',           // Changed to 'bug' label
               'In Review': 'status:review',
-              'Done': 'status:completed'
+              'Done': 'help wanted'          // Changed to 'help wanted' label
             };
             
             try {
@@ -187,28 +187,31 @@ jobs:
                   console.log(`Column value: ${columnValue}`);
                   
                   // Get the label for this column
-                  const newStatusLabel = columnToLabelMap[columnValue];
-                  if (!newStatusLabel) {
+                  const newColumnLabel = columnToLabelMap[columnValue];
+                  if (!newColumnLabel) {
                     console.log(`No label mapping defined for column value: ${columnValue}`);
                     continue;
                   }
                   
-                  console.log(`Mapped to label: ${newStatusLabel}`);
+                  console.log(`Mapped to label: ${newColumnLabel}`);
                   
-                  // Get current issue labels to preserve non-status labels
+                  // Get current issue labels to preserve other labels
                   const { data: issueData } = await github.rest.issues.get({
                     owner: repoOwner,
                     repo: repoName,
                     issue_number: issueNumber
                   });
                   
-                  // Filter out existing status labels
-                  const nonStatusLabels = issueData.labels
-                    .filter(label => !label.name.startsWith('status:'))
+                  // Define the column-related labels we want to manage
+                  const managedLabels = Object.values(columnToLabelMap);
+                  
+                  // Filter out column-related labels we're managing
+                  const otherLabels = issueData.labels
+                    .filter(label => !managedLabels.includes(label.name))
                     .map(label => label.name);
                   
-                  // Add the new status label
-                  const newLabels = [...nonStatusLabels, newStatusLabel];
+                  // Add the new column-related label
+                  const newLabels = [...otherLabels, newColumnLabel];
                   
                   // Update the issue with the new labels
                   await github.rest.issues.update({
