@@ -9,11 +9,11 @@ on:
     - cron: '0 * * * *'
   # Also allow manual triggering for testing
   workflow_dispatch:
-
 permissions:
   issues: write    # Needed to modify issue labels
   contents: read   # Needed to access repository
   repository-projects: read  # Needed to access project data
+  id-token: write  # Needed for stronger GitHub token
 
 jobs:
   update-labels:
