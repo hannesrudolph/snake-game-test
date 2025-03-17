@@ -34,6 +34,9 @@ jobs:
               "Test Project"  // Only this specific project will be processed
             ];
             
+            // Direct ID access - including the Node ID we found using gh cli
+            const projectNodeId = "PVT_kwHOAu1Bj84AzsG6";  // This is the direct GitHub node ID for Test Project
+            
             // Additionally, try to target by project ID
             const targetProjectNumbers = [5]; // Project number 5 is "Test Project"
             
@@ -207,6 +210,55 @@ jobs:
               const allProjects = [...orgProjects, ...repoProjects, ...userProjects];
               
               console.log(`Total projects found: ${allProjects.length}`);
+              
+              // If we couldn't find any projects through standard queries, let's try direct access
+              // using the Node ID we got from the GitHub CLI
+              if (allProjects.length === 0 && projectNodeId) {
+                console.log(`Attempting direct access to project with Node ID: ${projectNodeId}`);
+                
+                try {
+                  // Direct query by Node ID
+                  const directProjectQuery = `
+                    query($nodeId: ID!) {
+                      node(id: $nodeId) {
+                        ... on ProjectV2 {
+                          id
+                          title
+                          number
+                          fields(first: 20) {
+                            nodes {
+                              ... on ProjectV2SingleSelectField {
+                                id
+                                name
+                                options {
+                                  id
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  `;
+                  
+                  const directResult = await github.graphql(directProjectQuery, {
+                    nodeId: projectNodeId
+                  });
+                  
+                  if (directResult.node) {
+                    console.log(`DIRECT ACCESS SUCCESSFUL - Found project: "${directResult.node.title}" (#${directResult.node.number})`);
+                    allProjects.push(directResult.node);
+                  } else {
+                    console.log("Direct access did not return a project");
+                  }
+                } catch (error) {
+                  console.log("Error with direct project access:");
+                  console.log(error.message);
+                }
+              }
+              
+              console.log(`Total projects to process: ${allProjects.length}`);
               
               // Process each project
               for (const project of allProjects) {
