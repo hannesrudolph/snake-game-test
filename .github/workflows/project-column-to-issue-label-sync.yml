@@ -35,12 +35,10 @@ jobs:
             ];
             
             // Define mapping from column values to labels
-            // Configured for Test Project with specific labels
+            // Only mapping two columns as specified for the test
             const columnToLabelMap = {
-              'To Do': 'status:backlog',
-              'In Progress': 'bug',           // Changed to 'bug' label
-              'In Review': 'status:review',
-              'Done': 'help wanted'          // Changed to 'help wanted' label
+              'In Progress': 'bug',           // Maps to 'bug' label
+              'Done': 'help wanted'          // Maps to 'help wanted' label
             };
             
             try {
