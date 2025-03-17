@@ -28,17 +28,20 @@ jobs:
           script: |
             console.log('Starting project board to issue labels sync');
             
-            // Define which projects to process (empty array means process all projects)
-            // Configured to only process the "Test Project"
+            // Define which projects to process
+            // Configured to only process the "Test Project" (ID 5) under user hannesrudolph
             const targetProjects = [
               "Test Project"  // Only this specific project will be processed
             ];
             
+            // Additionally, try to target by project ID
+            const targetProjectNumbers = [5]; // Project number 5 is "Test Project"
+            
             // Define mapping from column values to labels
-            // Only mapping two columns as specified for the test
-            // Note: Column names must match exactly what's in the GitHub Project (case-sensitive)
+            // Column names must match exactly what's in the GitHub Project (case-sensitive)
+            // We found these exact names using the GitHub API: Todo, In Progress (capital P), Done
             const columnToLabelMap = {
-              'In progress': 'bug',           // GitHub uses "In progress" (lowercase 'p')
+              'In Progress': 'bug',          // GitHub uses "In Progress" (capital P)
               'Done': 'help wanted'          // Maps to 'help wanted' label
             };
             
@@ -209,13 +212,16 @@ jobs:
               for (const project of allProjects) {
                 console.log(`Found project: ${project.title} (#${project.number})`);
                 
-                // Skip projects not in the target list (if targets are specified)
-                if (targetProjects.length > 0 && !targetProjects.includes(project.title)) {
-                  console.log(`Skipping project: ${project.title} (not in target list)`);
+                // Check if this project matches our target (by name or number)
+                const matchesName = targetProjects.includes(project.title);
+                const matchesNumber = targetProjectNumbers.includes(project.number);
+                
+                if (targetProjects.length > 0 && !matchesName && !matchesNumber) {
+                  console.log(`Skipping project: ${project.title} (not in target list, number: ${project.number})`);
                   continue;
                 }
                 
-                console.log(`Processing project: ${project.title} (#${project.number})`);
+                console.log(`MATCH FOUND - Processing project: ${project.title} (#${project.number})`);
                 
                 // Find the status field
                 const statusField = project.fields.nodes.find(field =>
