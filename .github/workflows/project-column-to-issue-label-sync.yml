@@ -36,8 +36,9 @@ jobs:
             
             // Define mapping from column values to labels
             // Only mapping two columns as specified for the test
+            // Note: Column names must match exactly what's in the GitHub Project (case-sensitive)
             const columnToLabelMap = {
-              'In Progress': 'bug',           // Maps to 'bug' label
+              'In progress': 'bug',           // GitHub uses "In progress" (lowercase 'p')
               'Done': 'help wanted'          // Maps to 'help wanted' label
             };
             
@@ -78,6 +79,16 @@ jobs:
                 login: ownerLogin
               });
               
+              // Debug info - list all projects found
+              console.log("All projects found:");
+              if (projectsResult.user.projectsV2.nodes.length === 0) {
+                console.log("No projects found for this user");
+              }
+              
+              for (const p of projectsResult.user.projectsV2.nodes) {
+                console.log(`- Project: "${p.title}" (#${p.number})`);
+              }
+              
               // Process each project
               for (const project of projectsResult.user.projectsV2.nodes) {
                 console.log(`Found project: ${project.title} (#${project.number})`);
@@ -96,6 +107,15 @@ jobs:
                   field.name.toLowerCase() === 'state' ||
                   field.name.toLowerCase() === 'column'
                 );
+                
+                // Debug info - print all fields in this project
+                console.log(`Fields in project "${project.title}":`);
+                for (const field of project.fields.nodes) {
+                  console.log(`- Field: "${field.name}" (type: ${field.__typename})`);
+                  if (field.options) {
+                    console.log(`  Options: ${field.options.map(opt => `"${opt.name}"`).join(', ')}`);
+                  }
+                }
                 
                 if (!statusField) {
                   console.log(`No status field found for project ${project.title}`);
