@@ -48,10 +48,14 @@ jobs:
               
               console.log(`Fetching projects for ${ownerLogin}`);
               
-              // Query for organization/user projects
-              const projectsQuery = `
-                query($login: String!) {
-                  user(login: $login) {
+              console.log(`Repository owner: ${ownerLogin}`);
+              console.log('Checking for repository projects...');
+              
+              // Query for organization/repository projects
+              // This will find projects at the repository level
+              const repoProjectsQuery = `
+                query($owner: String!, $repo: String!) {
+                  repository(owner: $owner, name: $repo) {
                     projectsV2(first: 10) {
                       nodes {
                         id
@@ -75,22 +79,29 @@ jobs:
                 }
               `;
               
-              const projectsResult = await github.graphql(projectsQuery, {
-                login: ownerLogin
+              const repoProjectsResult = await github.graphql(repoProjectsQuery, {
+                owner: context.repo.owner,
+                repo: context.repo.repo
               });
               
-              // Debug info - list all projects found
-              console.log("All projects found:");
-              if (projectsResult.user.projectsV2.nodes.length === 0) {
-                console.log("No projects found for this user");
+              // Get all projects from repository
+              const repoProjects = repoProjectsResult.repository?.projectsV2?.nodes || [];
+              
+              // Debug info - list all repository projects found
+              console.log("All repository projects found:");
+              if (repoProjects.length === 0) {
+                console.log("No projects found for this repository");
+              } else {
+                for (const p of repoProjects) {
+                  console.log(`- Project: "${p.title}" (#${p.number})`);
+                }
               }
               
-              for (const p of projectsResult.user.projectsV2.nodes) {
-                console.log(`- Project: "${p.title}" (#${p.number})`);
-              }
+              // Process all repository projects
+              const allProjects = [...repoProjects];
               
               // Process each project
-              for (const project of projectsResult.user.projectsV2.nodes) {
+              for (const project of allProjects) {
                 console.log(`Found project: ${project.title} (#${project.number})`);
                 
                 // Skip projects not in the target list (if targets are specified)
