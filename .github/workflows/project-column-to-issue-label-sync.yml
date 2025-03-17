@@ -24,9 +24,12 @@ jobs:
       - name: Sync issue labels with project board columns
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Use a personal access token with proper scope instead of the default GITHUB_TOKEN
+          # This requires creating a PAT with 'read:project' scope and adding it as a repository secret
+          github-token: ${{ secrets.PROJECT_ACCESS_TOKEN }}
           script: |
             console.log('Starting project board to issue labels sync');
+            console.log('Using custom access token with expanded permissions');
             
             // Define which projects to process
             // Configured to only process the "Test Project" (ID 5) under user hannesrudolph
