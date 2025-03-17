@@ -29,10 +29,9 @@ jobs:
             console.log('Starting project board to issue labels sync');
             
             // Define which projects to process (empty array means process all projects)
-            // Add project titles here to limit which projects are processed
+            // Configured to only process the "Test Project"
             const targetProjects = [
-              // For example: "Development Kanban Board", "Bug Tracker"
-              // Leave empty to process all projects
+              "Test Project"  // Only this specific project will be processed
             ];
             
             // Define mapping from column values to labels
