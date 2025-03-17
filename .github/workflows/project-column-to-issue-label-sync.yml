@@ -49,10 +49,63 @@ jobs:
               console.log(`Fetching projects for ${ownerLogin}`);
               
               console.log(`Repository owner: ${ownerLogin}`);
+              console.log(`Repository name: ${context.repo.repo}`);
+              
+              // First, check if we're in an organization
+              console.log('Checking for organization projects...');
+              
+              // This will find projects at the organization level
+              const orgProjectsQuery = `
+                query($organization: String!) {
+                  organization(login: $organization) {
+                    projectsV2(first: 10) {
+                      nodes {
+                        id
+                        title
+                        number
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              let orgProjects = [];
+              try {
+                const orgProjectsResult = await github.graphql(orgProjectsQuery, {
+                  organization: ownerLogin
+                });
+                
+                orgProjects = orgProjectsResult.organization?.projectsV2?.nodes || [];
+                
+                console.log("Organization projects found:");
+                if (orgProjects.length === 0) {
+                  console.log("No organization projects found");
+                } else {
+                  for (const p of orgProjects) {
+                    console.log(`- Org Project: "${p.title}" (#${p.number})`);
+                  }
+                }
+              } catch (error) {
+                console.log("Error querying organization projects (likely not an organization):");
+                console.log(error.message);
+              }
+              
+              // Now check repository projects
               console.log('Checking for repository projects...');
               
-              // Query for organization/repository projects
-              // This will find projects at the repository level
+              // Query for repository projects
               const repoProjectsQuery = `
                 query($owner: String!, $repo: String!) {
                   repository(owner: $owner, name: $repo) {
@@ -97,8 +150,60 @@ jobs:
                 }
               }
               
-              // Process all repository projects
-              const allProjects = [...repoProjects];
+              // Also check for user projects
+              console.log('Checking for user projects...');
+              
+              const userProjectsQuery = `
+                query($login: String!) {
+                  user(login: $login) {
+                    projectsV2(first: 10) {
+                      nodes {
+                        id
+                        title
+                        number
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                              options {
+                                id
+                                name
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              
+              let userProjects = [];
+              try {
+                const userProjectsResult = await github.graphql(userProjectsQuery, {
+                  login: ownerLogin
+                });
+                
+                userProjects = userProjectsResult.user?.projectsV2?.nodes || [];
+                
+                console.log("User projects found:");
+                if (userProjects.length === 0) {
+                  console.log("No user projects found");
+                } else {
+                  for (const p of userProjects) {
+                    console.log(`- User Project: "${p.title}" (#${p.number})`);
+                  }
+                }
+              } catch (error) {
+                console.log("Error querying user projects:");
+                console.log(error.message);
+              }
+              
+              // Process all projects from all sources
+              const allProjects = [...orgProjects, ...repoProjects, ...userProjects];
+              
+              console.log(`Total projects found: ${allProjects.length}`);
               
               // Process each project
               for (const project of allProjects) {
